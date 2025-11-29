@@ -1,0 +1,16 @@
+datasets:
+  - name: locomo_dev
+    data: data/external/locomo/processed/locomo10.jsonl
+    benchmark: locomo
+    mode: real
+    max_samples: 100
+  - name: infinitebench_dev
+    data: data/external/infinitebench/dev.jsonl
+    benchmark: infinitebench
+    mode: real
+    max_samples: 100
+  - name: agentbench_workflow
+    data: data/external/agentbench/workflow.jsonl
+    benchmark: agentbench
+    mode: real
+    max_samples: 50

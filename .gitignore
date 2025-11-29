@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+.env/
+
+# Build / cache / artifacts
+.mypy_cache/
+.pytest_cache/
+artifacts/
+
+# IDE
+.idea/
+.vscode/
+
+# Large data/models (本地使用，不提交)
+data/
+models/
+
+# Checkpoints / weights
+*.ckpt
+*.bin
+*.safetensors
+
+# Logs
+*.log
