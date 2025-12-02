@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from .types import Anchor, HyperToken, VisualToken
+from .debug_utils import log_debug_json
 
 _KV_PATTERN = re.compile(r"(key_\d+_\d+)\s+is\s+([A-Za-z0-9_\-]+)")
 _ALERT_PATTERN = re.compile(r"(\d{10})\s+ALERT")
@@ -115,6 +116,14 @@ class VALMStore:
         if events:
             self.event_index[topic].extend(events)
             self._materialize_event_tokens(topic, events)
+            # Debug：记录每个 topic 的结构化事件
+            log_debug_json(
+                "locomo_events.json",
+                {
+                    "topic": topic,
+                    "events": events,
+                },
+            )
 
     def events_for_topic(self, topic: str | None) -> List[dict]:
         if topic is None:
@@ -140,6 +149,17 @@ class VALMStore:
             if overlap > best_score:
                 best_score = overlap
                 best_event = event
+        # Debug：记录事件匹配过程
+        log_debug_json(
+            "locomo_match_event.json",
+            {
+                "topic": topic,
+                "question": question_text,
+                "best_event": best_event,
+                "best_score": best_score,
+                "total_events": len(events),
+            },
+        )
         return best_event, best_score
 
     def event_tokens(self, topic: str | None) -> List[HyperToken]:

@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Protocol
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 from .config import VisualizerConfig
 from .vision import RenderedCanvas
+from .draw.locomo import render_locomo_canvas_to_image
 
 
 class VISTPatch(Protocol):
@@ -71,13 +72,15 @@ class HFViTBackend:
         image = self._canvas_to_image(canvas)
 
         import torch
-
+        from datetime import datetime
+        image.save(f"./debug/images/debug_canvas_{datetime.now().strftime('%Y%m%d%H%M%S')}.png") 
+        
         inputs = self._prepare_inputs(image)
         with torch.no_grad():
             outputs = self.model(**inputs)
         # Take CLS and patch embeddings as features
         patch_embeddings = outputs.last_hidden_state.squeeze(0).cpu().tolist()
-
+    
         patches: List[dict] = []
         for idx, embedding in enumerate(patch_embeddings):
             if idx == 0:
@@ -101,55 +104,15 @@ class HFViTBackend:
         return renderer.render_canvas(text)
 
     def _canvas_to_image(self, canvas: RenderedCanvas) -> Image.Image:
-        # Try to load a font that supports bold/size if possible, else default
-        # For saliency-aware rendering, we really need a truetype font to change size/weight
-        # But default PIL font is bitmap and fixed size.
-        try:
-            # Try fetching a system font or a known path? 
-            # In typical linux envs, DejaVuSans is common.
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-            import os
-            if os.path.exists(font_path):
-                base_font = ImageFont.truetype(font_path, 15)
-                bold_font = ImageFont.truetype(font_path, 18) # Bigger for saliency
-            else:
-                # Fallback to default if no font file found
-                base_font = ImageFont.load_default()
-                bold_font = base_font
-        except Exception:
-            base_font = ImageFont.load_default()
-            bold_font = base_font
+        """
+        将 RenderedCanvas 渲染为图像。
 
-        try:
-            line_height = getattr(base_font, "size", 15) + 4
-        except AttributeError:
-            line_height = 15
-        
-        width = self.config.wrap_width * 12 # Increased width multiplier for larger font safety
-        height = max(1, len(canvas.lines)) * (line_height + 2)
-        image = Image.new("L", (width, height), color=255)
-        draw = ImageDraw.Draw(image)
-
-        # Mock saliency for now since RenderedCanvas lines don't have per-line saliency yet.
-        # In a real impl, `render_canvas` would return (text, saliency) tuples.
-        # Here we just demo the capability:
-        # If line starts with a number or capital, we treat it as "salient" (heuristic).
-        
-        y_cursor = 0
-        for idx, line in enumerate(canvas.lines):
-            is_salient = (len(line) > 0 and (line[0].isdigit() or line[0].isupper()))
-            
-            if is_salient and bold_font != base_font:
-                font_to_use = bold_font
-                fill_color = 0 # Black
-            else:
-                font_to_use = base_font
-                fill_color = 100 if not is_salient else 0 # Gray if not salient
-                
-            draw.text((5, y_cursor), line, font=font_to_use, fill=fill_color)
-            y_cursor += line_height
-
-        return image.convert("RGB")
+        当前默认使用 LoCoMo 专用渲染器：
+        - D1:1 这种对话编号使用紫色高亮
+        - 时间戳使用蓝色背景高亮
+        - 其他 token 按无模型 Shannon 信息量分布灰度
+        """
+        return render_locomo_canvas_to_image(self.config, canvas)
 
     def _load_preprocessor_config(self) -> dict | None:
         import json

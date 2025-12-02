@@ -8,6 +8,7 @@ from typing import Iterable, List, Tuple
 from .config import RetrievalConfig
 from .store import VALMStore
 from .types import Anchor, HyperToken, QueryContext, VisualToken
+from .debug_utils import log_debug_json
 
 _WORD_RE = re.compile(r"[A-Za-z0-9\-]+")
 
@@ -80,7 +81,35 @@ class VALMRetrievalEngine:
             ranked.append((hyper, score))
 
         ranked.sort(key=lambda item: item[1], reverse=True)
-        return ranked[: self.config.coarse_top_k]
+
+        top_k = ranked[: self.config.coarse_top_k]
+
+        # Debug：记录本次检索的 Top-K 结果
+        debug_entries = []
+        for hyper, s in top_k[:5]:
+            anchor = self._anchor_for_token(hyper.token_id)
+            token = self.store.tokens.get(hyper.token_id)
+            text_source = anchor.text if anchor else (token.text_span if token else hyper.metadata.get("event_text", ""))
+            debug_entries.append(
+                {
+                    "token_id": hyper.token_id,
+                    "score": s,
+                    "text": text_source,
+                    "timestamp": hyper.metadata.get("timestamp"),
+                }
+            )
+        log_debug_json(
+            "locomo_retrieval.json",
+            {
+                "query_text": query.text,
+                "topic": query.topic,
+                "time_hint": query.time_hint,
+                "time_window": query.time_window,
+                "top_k": debug_entries,
+            },
+        )
+
+        return top_k
 
     def _candidate_hyper_tokens(self, query: QueryContext) -> Iterable[HyperToken]:
         yielded = False
